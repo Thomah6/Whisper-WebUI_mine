@@ -1,34 +1,28 @@
-FROM debian:bookworm-slim AS builder
+FROM python:3.10-slim
 
-RUN apt-get update && \
-    apt-get install -y curl git python3 python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* && \
-    mkdir -p /Whisper-WebUI
+# Instala dependencias essenciais do sistema (ffmpeg para audio/video e git)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    git \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /Whisper-WebUI
+WORKDIR /app
 
-COPY requirements.txt .
-
-RUN python3 -m venv venv && \
-    . venv/bin/activate && \
-    pip install -U -r requirements.txt
-
-
-FROM debian:bookworm-slim AS runtime
-
-RUN apt-get update && \
-    apt-get install -y curl ffmpeg python3 && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-
-WORKDIR /Whisper-WebUI
-
+# Copia todos os arquivos do repositorio
 COPY . .
-COPY --from=builder /Whisper-WebUI/venv /Whisper-WebUI/venv
 
-VOLUME [ "/Whisper-WebUI/models" ]
-VOLUME [ "/Whisper-WebUI/outputs" ]
+# 1. Atualiza ferramentas de build
+# 2. Instala PyTorch otimizado para CPU (economiza ~4GB de download)
+# 3. Instala os pacotes do requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
-ENV PATH="/Whisper-WebUI/venv/bin:$PATH"
-ENV LD_LIBRARY_PATH=/Whisper-WebUI/venv/lib64/python3.11/site-packages/nvidia/cublas/lib:/Whisper-WebUI/venv/lib64/python3.11/site-packages/nvidia/cudnn/lib
+# Variaveis para escutar na porta correta
+ENV PORT=7860
+EXPOSE 7860
 
-ENTRYPOINT [ "python", "app.py" ]
+# Inicia o servidor Gradio apontando para 0.0.0.0
+CMD ["sh", "-c", "python app.py --server_name 0.0.0.0 --server_port ${PORT:-7860}"]
