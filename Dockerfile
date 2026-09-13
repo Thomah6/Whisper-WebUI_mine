@@ -25,4 +25,4 @@ RUN pip install --no-cache-dir --upgrade pip "setuptools<80.0.0" wheel && \
 ENV PORT=7860
 EXPOSE 7860
 
-CMD ["sh", "-c", "python app.py --server_name 0.0.0.0 --server_port ${PORT:-7860}"]
+CMD ["python", "app.py", "--server_name", "0.0.0.0", "--server_port", "7860"]
